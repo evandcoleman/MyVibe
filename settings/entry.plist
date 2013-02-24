@@ -1,0 +1,10 @@
+{
+    entry = {
+	bundle = MyVibeSettings;
+	cell = PSLinkCell;
+	detail = MyVibeListController;
+	icon = MyVibe.png;
+	isController = 1;
+	label = MyVibe;
+    };
+}
