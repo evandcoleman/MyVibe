@@ -27,7 +27,7 @@
 - (BOOL)quietModeEnabled;
 @end
 
-static BOOL debug = NO;
+static BOOL debug = YES;
 
 static BOOL shouldVibe = YES;
 static BOOL shouldSilence = YES;
@@ -42,6 +42,26 @@ static NSMutableDictionary *prefsDict = nil;
 static CMMotionManager *myVibeMotionManager = nil;
 static NSOperationQueue *myvibeOpQ = nil;
 static BBSettingsGateway *bbGateway = nil;
+
+void MVLog(NSString *s, ...) {
+  if (!debug) return;
+  va_list args;
+    va_start(args, s);
+    NSString *logString = [[NSString alloc] initWithFormat:s arguments:args];
+  NSLog(@"%@", logString);
+//  NSFileHandle *filePath = [NSFileHandle fileHandleForWritingAtPath:LogFilePath];
+//    if(filePath == nil) {
+//        [[NSFileManager defaultManager] createFileAtPath:LogFilePath contents:nil attributes:nil];
+//        filePath = [NSFileHandle fileHandleForWritingAtPath:LogFilePath];
+//    }
+//  NSString *timeStamp = [[NSDate date] description];
+//  timeStamp = [timeStamp stringByAppendingString:@": "];
+//  NSString *writeString = [timeStamp stringByAppendingString:logString];
+//  writeString = [writeString stringByAppendingString:@"\n"];
+//    [filePath seekToEndOfFile];
+//    [filePath writeData:[writeString dataUsingEncoding:NSUTF8StringEncoding]];
+//    [filePath closeFile];
+}
 
 %hook SBSoundPreferences
 
@@ -59,9 +79,18 @@ static BBSettingsGateway *bbGateway = nil;
 
 - (void)setBehaviorOverrideStatus:(BOOL)arg1 {
 	if (self != bbGateway) {
+    MVLog(@"SET BEHAVIOR OVERRIDE STATUS: %d", arg1);
 		wasDND = arg1;
 	}
 	%orig;
+}
+
+- (void)setBehaviorOverrideStatus:(int)arg1 source:(unsigned)arg2 {
+  if (self != bbGateway) {
+    MVLog(@"SET BEHAVIOR OVERRIDE STATUS AND SOURCE: %d", arg1);
+    wasDND = arg1;
+  }
+  %orig;
 }
 
 %end
@@ -87,26 +116,6 @@ static BBSettingsGateway *bbGateway = nil;
 }
 
 %end*/
-
-void MVLog(NSString *s, ...) {
-	if (!debug) return;
-	va_list args;
-    va_start(args, s);
-    NSString *logString = [[NSString alloc] initWithFormat:s arguments:args];
-	NSLog(@"%@", logString);
-//	NSFileHandle *filePath = [NSFileHandle fileHandleForWritingAtPath:LogFilePath];
-//    if(filePath == nil) {
-//        [[NSFileManager defaultManager] createFileAtPath:LogFilePath contents:nil attributes:nil];
-//        filePath = [NSFileHandle fileHandleForWritingAtPath:LogFilePath];
-//    }
-//	NSString *timeStamp = [[NSDate date] description];
-//	timeStamp = [timeStamp stringByAppendingString:@": "];
-//	NSString *writeString = [timeStamp stringByAppendingString:logString];
-//	writeString = [writeString stringByAppendingString:@"\n"];
-//    [filePath seekToEndOfFile];
-//    [filePath writeData:[writeString dataUsingEncoding:NSUTF8StringEncoding]];
-//    [filePath closeFile];
-}
 
 void toggleStatusBarItem(BOOL enabled) {
 	if(enabled) {
