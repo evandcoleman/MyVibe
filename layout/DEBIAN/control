@@ -1,7 +1,7 @@
 Package: net.evancoleman.myvibe
 Name: MyVibe
 Depends: mobilesubstrate, preferenceloader, libstatusbar, firmware (>= 6.0)
-Version: 1.0
+Version: 1.2
 Architecture: iphoneos-arm
 Icon: file:///Library/PreferenceBundles/MyVibeSettings.bundle/MyVibe@2x.png
 Description: Stop your phone from shaking tables.

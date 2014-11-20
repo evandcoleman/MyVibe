@@ -1,7 +1,7 @@
-export THEOS_DEVICE_IP=192.168.0.95
-export ARCHS = armv7
-export GO_EASY_ON_ME=0
-export TARGET=iphone:clang:latest:6.0
+export THEOS_DEVICE_IP=192.168.0.103
+export GO_EASY_ON_ME=1
+export TARGET=iphone:clang:7.0:6.0
+export ARCHS = arm64 armv7
 
 include theos/makefiles/common.mk
 
@@ -10,10 +10,10 @@ MyVibe_FILES = Tweak.xm
 MyVibe_FRAMEWORKS = UIKit CoreMotion
 MyVibe_PRIVATE_FRAMEWORKS = BulletinBoard
 
-SUBPROJECTS = settings
+SUBPROJECTS = settings myvibetoggle
 include $(THEOS_MAKE_PATH)/tweak.mk
 
 include $(FW_MAKEDIR)/aggregate.mk
 
 after-install::
-	install.exec "killall -9 SpringBoard"
+	install.exec "killall -9 backboardd"

@@ -1,0 +1,10 @@
+Package: net.evancoleman.myvibe-sbsettings
+Name: MyVibe Toggle
+Depends: sbsettings, net.evancoleman.myvibe
+Version: 1.0
+Architecture: iphoneos-arm
+Description: SBSettings Toggle for MyVibe
+Maintainer: Evan Coleman
+Author: Evan Coleman
+Section: Addons (SBSettings)
+dev: edc1591

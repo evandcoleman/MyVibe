@@ -72,7 +72,25 @@
 		</dict>
 		<dict>
 			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>net.evancoleman.myvibe</string>
+			<key>key</key>
+			<string>silentdisable</string>
+			<key>label</key>
+			<string>Disable While Muted</string>
+			<key>PostNotification</key>
+			<string>net.evancoleman.myvibe.prefs</string>
+			<key>id</key>
+			<string>iphone-only</string>
+		</dict>	
+		<dict>
+			<key>cell</key>
 			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>Higher refresh rates may decrease battery life.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -85,24 +103,62 @@
 			<real>0.95</real>
 			<key>validTitles</key>
 			<array>
-				<string>Very Low</string>
+				<string>Lowest</string>
+				<string>Lower</string>
 				<string>Low</string>
 				<string>Medium</string>
 				<string>High</string>
-				<string>Very High</string>
+				<string>Higher</string>
+				<string>Highest</string>
 			</array>
 			<key>validValues</key>
 			<array>
+				<real>0.89</real>
 				<real>0.91</real>
 				<real>0.93</real>
 				<real>0.95</real>
 				<real>0.97</real>
 				<real>0.99</real>
+				<real>1.00</real>
 			</array>
 			<key>defaults</key>
 			<string>net.evancoleman.myvibe</string>
 			<key>key</key>
 			<string>sensitivity</string>
+			<key>PostNotification</key>
+			<string>net.evancoleman.myvibe.prefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkListCell</string>
+			<key>detail</key>
+			<string>PSListItemsController</string>
+			<key>label</key>
+			<string>Refresh Rate</string>
+			<key>default</key>
+			<real>2</real>
+			<key>validTitles</key>
+			<array>
+				<string>4 Hz</string>
+				<string>2 Hz</string>
+				<string>1 Hz</string>
+				<string>0.5 Hz (Default)</string>
+				<string>0.3 Hz Hz</string>
+				<string>0.25 Hz</string>
+			</array>
+			<key>validValues</key>
+			<array>
+				<real>0.25</real>
+				<real>0.5</real>
+				<real>1</real>
+				<real>2</real>
+				<real>3</real>
+				<real>4</real>
+			</array>
+			<key>defaults</key>
+			<string>net.evancoleman.myvibe</string>
+			<key>key</key>
+			<string>refresh</string>
 			<key>PostNotification</key>
 			<string>net.evancoleman.myvibe.prefs</string>
 		</dict>
@@ -150,8 +206,7 @@
 			<key>alignment</key>
 			<integer>2</integer>
 			<key>footerText</key>
-			<string>Twitter: @edc1591, Website: edc.me
-			MyVibe © 2013 Evan Coleman.</string>
+			<string>Twitter: @edc1591, Website: edc.me&#xA;MyVibe © 2014 Evan Coleman.</string>
 		</dict>
 	</array>
 	<key>title</key>

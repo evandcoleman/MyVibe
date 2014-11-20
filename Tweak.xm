@@ -3,6 +3,7 @@
 #import <AudioToolbox/AudioToolbox.h>
 
 #define PreferencesFilePath [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Preferences/net.evancoleman.myvibe.plist"]
+#define LogFilePath [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Logs/myvibe.log"]
 #define SpringBoardPreferencesFilePath [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Preferences/com.apple.springboard.plist"]
 
 @interface UIApplication (libstatusbar)
@@ -21,21 +22,91 @@
 - (BOOL)quietModeEnabled;
 @end
 
+@interface SBBulletinSoundController : NSObject
++ (id)sharedInstance;
+- (BOOL)quietModeEnabled;
+@end
+
 static BOOL debug = NO;
 
 static BOOL shouldVibe = YES;
 static BOOL shouldSilence = YES;
 static BOOL onTable = NO;
 static BOOL faceDown = NO;
-static BOOL silentVibrateWasOn = NO;
-static BOOL ringVibrateWasOn = NO;
+//static BOOL silentVibrateWasOn = NO;
+//static BOOL ringVibrateWasOn = NO;
 static BOOL wasDND = NO;
-static float defaultThreshold = 0.93;
-static NSDictionary *prefsDict = nil;
+static float defaultThreshold = 0.95;
+static float defaultRefresh = 2.0;
+static NSMutableDictionary *prefsDict = nil;
 static CMMotionManager *myVibeMotionManager = nil;
 static NSOperationQueue *myvibeOpQ = nil;
 static BBSettingsGateway *bbGateway = nil;
 
+%hook SBSoundPreferences
+
++ (BOOL)shouldVibrateForCurrentRingerState {
+	BOOL retVal = NO;
+	if(shouldVibe) {
+		retVal = %orig;
+	}
+	return retVal;
+}
+
+%end
+
+%hook BBSettingsGateway
+
+- (void)setBehaviorOverrideStatus:(BOOL)arg1 {
+	if (self != bbGateway) {
+		wasDND = arg1;
+	}
+	%orig;
+}
+
+%end
+
+/*%hook SBUserAgent
+
+- (void)playRingtoneAtPath:(id)arg1 vibrationPattern:(id)arg2 {
+	MVLog(@"VIBRATE: %d",shouldVibe);
+	if(shouldVibe) {
+		%orig;
+	} else {
+		%orig(arg1, nil);
+	}
+}
+
+%end*/
+
+/*%hook AVController
+
+- (BOOL)vibrationEnabled {
+	MVLog(@"VIBRATE: %d",shouldVibe);
+	return shouldVibe;
+}
+
+%end*/
+
+void MVLog(NSString *s, ...) {
+	if (!debug) return;
+	va_list args;
+    va_start(args, s);
+    NSString *logString = [[NSString alloc] initWithFormat:s arguments:args];
+	NSLog(@"%@", logString);
+//	NSFileHandle *filePath = [NSFileHandle fileHandleForWritingAtPath:LogFilePath];
+//    if(filePath == nil) {
+//        [[NSFileManager defaultManager] createFileAtPath:LogFilePath contents:nil attributes:nil];
+//        filePath = [NSFileHandle fileHandleForWritingAtPath:LogFilePath];
+//    }
+//	NSString *timeStamp = [[NSDate date] description];
+//	timeStamp = [timeStamp stringByAppendingString:@": "];
+//	NSString *writeString = [timeStamp stringByAppendingString:logString];
+//	writeString = [writeString stringByAppendingString:@"\n"];
+//    [filePath seekToEndOfFile];
+//    [filePath writeData:[writeString dataUsingEncoding:NSUTF8StringEncoding]];
+//    [filePath closeFile];
+}
 
 void toggleStatusBarItem(BOOL enabled) {
 	if(enabled) {
@@ -50,11 +121,20 @@ void toggleStatusBarItem(BOOL enabled) {
 void toggleVibrate(BOOL enabled) {
 	NSMutableDictionary *springPrefs = [[NSMutableDictionary alloc] initWithContentsOfFile:SpringBoardPreferencesFilePath];
 	if(!enabled) {
-		silentVibrateWasOn = [[springPrefs objectForKey:@"silent-vibrate"] boolValue];
-		ringVibrateWasOn = [[springPrefs objectForKey:@"ring-vibrate"] boolValue];
+		//silentVibrateWasOn = [[springPrefs objectForKey:@"silent-vibrate"] boolValue];
+		//ringVibrateWasOn = [[springPrefs objectForKey:@"ring-vibrate"] boolValue];
+		[prefsDict setObject:[NSNumber numberWithBool:[[springPrefs objectForKey:@"silent-vibrate"] boolValue]] forKey:@"silent-vibrate"];
+		[prefsDict setObject:[NSNumber numberWithBool:[[springPrefs objectForKey:@"ring-vibrate"] boolValue]] forKey:@"ring-vibrate"];
+		[prefsDict writeToFile:PreferencesFilePath atomically:YES];
+		[springPrefs setObject:[NSNumber numberWithBool:NO] forKey:@"silent-vibrate"];
+		[springPrefs setObject:[NSNumber numberWithBool:NO] forKey:@"ring-vibrate"];
+	} else {
+		if([prefsDict objectForKey:@"silent-vibrate"] != nil && [prefsDict objectForKey:@"ring-vibrate"] != nil) {
+			MVLog(@"RESTORING TO STATE %@ and %@",[prefsDict objectForKey:@"silent-vibrate"],[prefsDict objectForKey:@"ring-vibrate"]);
+			[springPrefs setObject:[prefsDict objectForKey:@"silent-vibrate"] forKey:@"silent-vibrate"];
+			[springPrefs setObject:[prefsDict objectForKey:@"ring-vibrate"] forKey:@"ring-vibrate"];
+		}
 	}
-	[springPrefs setObject:[NSNumber numberWithBool:enabled] forKey:@"silent-vibrate"];
-	[springPrefs setObject:[NSNumber numberWithBool:enabled] forKey:@"ring-vibrate"];
 	[springPrefs writeToFile:SpringBoardPreferencesFilePath atomically:YES];
 	[springPrefs release];
 	CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("com.apple.springboard.silent-vibrate.changed"), NULL, NULL, TRUE);
@@ -63,19 +143,33 @@ void toggleVibrate(BOOL enabled) {
 
 void startMyVibe() {
     myVibeMotionManager = [[CMMotionManager alloc] init];
-    myVibeMotionManager.accelerometerUpdateInterval = 2.0;
+	float refreshRate = [[prefsDict objectForKey:@"refresh"] floatValue];
+	if([prefsDict objectForKey:@"refresh"] == nil) refreshRate = defaultRefresh;
+    myVibeMotionManager.accelerometerUpdateInterval = refreshRate;
 	myvibeOpQ = [[NSOperationQueue currentQueue] retain];
     CMAccelerometerHandler accHandler = ^ (CMAccelerometerData *accData, NSError *error) {
 	
+		float refreshRate = [[prefsDict objectForKey:@"refresh"] floatValue];
+		if([prefsDict objectForKey:@"refresh"] == nil) refreshRate = defaultRefresh;
+		myVibeMotionManager.accelerometerUpdateInterval = refreshRate;
+	
 		BOOL tableVibrate = [[prefsDict objectForKey:@"tablevibrate"] boolValue];
 		BOOL upsideDownSilent = [[prefsDict objectForKey:@"upsidedownsilent"] boolValue];
-
-		if(debug) NSLog(@"TABLE VIBRATE: %d",tableVibrate && [[[UIDevice currentDevice] model] isEqualToString:@"iPhone"]);
-		if(debug) NSLog(@"FACE DOWN SILENT: %d",upsideDownSilent);
-		if(debug) NSLog(@"%f",accData.acceleration.z);
+		
+		BOOL disableWhileMuted = [[prefsDict objectForKey:@"silentdisable"] boolValue];
+		if(disableWhileMuted) {
+			int muted = MSHookIvar<int>([UIApplication sharedApplication], "_ringerSwitchState");
+			if(muted == 0) {
+				tableVibrate = NO;
+			}
+		}
 		
 		float tableThreshold = [[prefsDict objectForKey:@"sensitivity"] floatValue];
 		if([prefsDict objectForKey:@"sensitivity"] == nil) tableThreshold = defaultThreshold;
+
+		MVLog(@"TABLE VIBRATE: %d",tableVibrate && [[[UIDevice currentDevice] model] isEqualToString:@"iPhone"]);
+		MVLog(@"FACE DOWN SILENT: %d",upsideDownSilent);
+		MVLog(@"Reading: %f, Threshold: %f",accData.acceleration.z, tableThreshold);
 
 		if(tableVibrate && [[[UIDevice currentDevice] model] isEqualToString:@"iPhone"]) {
 			if(accData.acceleration.z > tableThreshold || accData.acceleration.z < -tableThreshold) {
@@ -85,7 +179,7 @@ void startMyVibe() {
 					toggleVibrate(NO);
 					toggleStatusBarItem(YES);
 				} else if(!onTable) {
-					if(debug) NSLog(@"PLACED ON TABLE: FIRST CHECK");
+					MVLog(@"PLACED ON TABLE: FIRST CHECK");
 					onTable = YES;
 				}
 			} else {
@@ -95,7 +189,7 @@ void startMyVibe() {
 					toggleVibrate(YES);
 					toggleStatusBarItem(NO);
 				} else if(onTable) {
-					if(debug) NSLog(@"REMOVED FROM TABLE: FIRST CHECK");
+					MVLog(@"REMOVED FROM TABLE: FIRST CHECK");
 					onTable = NO;
 				}
 			}
@@ -110,25 +204,29 @@ void startMyVibe() {
 				if(faceDown && shouldSilence) {
 					//SILENT
 					shouldSilence = NO;
-					wasDND = [[NSClassFromString(@"SBBulletinSystemStateAdapter") sharedInstance] quietModeEnabled];
+					if ([[NSClassFromString(@"SBBulletinSystemStateAdapter") sharedInstance] respondsToSelector:@selector(quietModeEnabled)]) {
+						wasDND = [[NSClassFromString(@"SBBulletinSystemStateAdapter") sharedInstance] quietModeEnabled];
+					}
+					MVLog(@"DND ORIGINAL STATE: %d", wasDND);
 					[bbGateway setBehaviorOverrideStatus:YES];
 				} else if(!faceDown) {
-					if(debug) NSLog(@"FACE DOWN: FIRST CHECK");
+					MVLog(@"FACE DOWN: FIRST CHECK");
 					faceDown = YES;
 				}
 			} else {
 				if(!faceDown && !shouldSilence) {
 					//NOT SILENT
 					shouldSilence = YES;
+					MVLog(@"SETTING DND BACK TO STATE: %d", wasDND);
 					[bbGateway setBehaviorOverrideStatus:wasDND];
 				} else if(faceDown) {
-					if(debug) NSLog(@"FACE UP: FIRST CHECK");
+					MVLog(@"FACE UP: FIRST CHECK");
 					faceDown = NO;
 				}
 			}
 		} else {
 			shouldSilence = YES;
-			[bbGateway setBehaviorOverrideStatus:wasDND];
+			//[bbGateway setBehaviorOverrideStatus:wasDND];
 			faceDown = NO;
 		}
 	};
@@ -136,7 +234,7 @@ void startMyVibe() {
 }
 
 static void updatePrefs(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
-    if(debug) NSLog(@"UPDATE PREFS");
+    MVLog(@"UPDATE PREFS");
     if(![[NSFileManager defaultManager] fileExistsAtPath:PreferencesFilePath]) {
         NSMutableDictionary *defaultPrefs = [[NSMutableDictionary alloc] init];
         [defaultPrefs setObject:[NSNumber numberWithBool:YES] forKey:@"enabled"];
@@ -146,10 +244,25 @@ static void updatePrefs(CFNotificationCenterRef center, void *observer, CFString
         [defaultPrefs release];
     }
     [prefsDict release];
-    prefsDict = [[NSDictionary alloc] initWithContentsOfFile:PreferencesFilePath];
+    prefsDict = [[NSMutableDictionary alloc] initWithContentsOfFile:PreferencesFilePath];
+	if (![[prefsDict objectForKey:@"showicon"] boolValue]) {
+		[[UIApplication sharedApplication] removeStatusBarImageNamed:@"MyVibeVibrate"];
+	} else {
+		if(onTable && !shouldVibe) {
+			[[UIApplication sharedApplication] addStatusBarImageNamed:@"MyVibeVibrate"];
+		}
+	}
+
     if([[prefsDict objectForKey:@"enabled"] boolValue] || [prefsDict objectForKey:@"enabled"] == nil) {
         if([[prefsDict objectForKey:@"tablevibrate"] boolValue] || [[prefsDict objectForKey:@"upsidedownsilent"] boolValue] || [prefsDict objectForKey:@"tablevibrate"] == nil) {
             if(myVibeMotionManager == nil) {
+				shouldVibe = YES;
+				shouldSilence = YES;
+				onTable = NO;
+				faceDown = NO;
+				//silentVibrateWasOn = NO;
+				//ringVibrateWasOn = NO;
+				wasDND = NO;
                 startMyVibe();
             }
         } else {
@@ -179,8 +292,10 @@ static void updatePrefs(CFNotificationCenterRef center, void *observer, CFString
 }
 
 %ctor {
+	updatePrefs(nil, nil, nil, nil, nil);
+	toggleVibrate(YES);
 	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, updatePrefs, CFSTR("net.evancoleman.myvibe.prefs"), NULL, CFNotificationSuspensionBehaviorHold);
-	CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("net.evancoleman.myvibe.prefs"), NULL, NULL, TRUE);
+	//CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("net.evancoleman.myvibe.prefs"), NULL, NULL, TRUE);
 	
 	bbGateway = [[BBSettingsGateway alloc] init];
 }
