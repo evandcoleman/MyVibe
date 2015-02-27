@@ -13,6 +13,7 @@ MyVibe_PRIVATE_FRAMEWORKS = BulletinBoard
 SUBPROJECTS = settings myvibetoggle
 include $(THEOS_MAKE_PATH)/tweak.mk
 
+SUBPROJECTS += myvibepreferenceshooks
 include $(FW_MAKEDIR)/aggregate.mk
 
 after-install::

@@ -7,6 +7,7 @@
 @interface PSSpecifier : NSObject
 - (void)setProperty:(id)arg1 forKey:(id)arg2;
 - (id)propertyForKey:(id)key;
+- (NSDictionary *)properties;
 @end
 
 @interface PSListController : UIViewController {
@@ -143,6 +144,24 @@
 		}
 	}];
 	[accountStore release];
+}
+
+-(id) readPreferenceValue:(PSSpecifier*)specifier {
+	NSDictionary *exampleTweakSettings = [NSDictionary dictionaryWithContentsOfFile:PreferencesFilePath];
+	if (!exampleTweakSettings[specifier.properties[@"key"]]) {
+		return specifier.properties[@"default"];
+	}
+	return exampleTweakSettings[specifier.properties[@"key"]];
+}
+ 
+-(void) setPreferenceValue:(id)value specifier:(PSSpecifier*)specifier {
+	NSMutableDictionary *defaults = [NSMutableDictionary dictionary];
+	[defaults addEntriesFromDictionary:[NSDictionary dictionaryWithContentsOfFile:PreferencesFilePath]];
+	[defaults setObject:value forKey:specifier.properties[@"key"]];
+	[defaults writeToFile:PreferencesFilePath atomically:YES];
+	NSDictionary *exampleTweakSettings = [NSDictionary dictionaryWithContentsOfFile:PreferencesFilePath];
+	CFStringRef toPost = (CFStringRef)specifier.properties[@"PostNotification"];
+	if(toPost) CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), toPost, NULL, NULL, YES);
 }
 
 @end

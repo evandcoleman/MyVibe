@@ -242,7 +242,7 @@ void startMyVibe() {
 	[myVibeMotionManager startAccelerometerUpdatesToQueue:myvibeOpQ withHandler:accHandler];
 }
 
-static void updatePrefs(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
+static void updatePrefs() {
     MVLog(@"UPDATE PREFS");
     if(![[NSFileManager defaultManager] fileExistsAtPath:PreferencesFilePath]) {
         NSMutableDictionary *defaultPrefs = [[NSMutableDictionary alloc] init];
@@ -301,9 +301,9 @@ static void updatePrefs(CFNotificationCenterRef center, void *observer, CFString
 }
 
 %ctor {
-	updatePrefs(nil, nil, nil, nil, nil);
+	updatePrefs();
 	toggleVibrate(YES);
-	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, updatePrefs, CFSTR("net.evancoleman.myvibe.prefs"), NULL, CFNotificationSuspensionBehaviorHold);
+	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, (CFNotificationCallback)updatePrefs, CFSTR("net.evancoleman.myvibe.prefs"), NULL, CFNotificationSuspensionBehaviorCoalesce);
 	//CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("net.evancoleman.myvibe.prefs"), NULL, NULL, TRUE);
 	
 	bbGateway = [[BBSettingsGateway alloc] init];
