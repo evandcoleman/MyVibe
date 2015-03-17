@@ -1,6 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <CoreMotion/CoreMotion.h>
 #import <AudioToolbox/AudioToolbox.h>
+#import <CoreFoundation/CoreFoundation.h>
 
 #define PreferencesFilePath [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Preferences/net.evancoleman.myvibe.plist"]
 #define LogFilePath [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Logs/myvibe.log"]
