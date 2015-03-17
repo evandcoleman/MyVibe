@@ -152,8 +152,8 @@ void toggleVibrate(BOOL enabled) {
 		if (rvBoolean)
 		    CFRelease(rvBoolean);
 
-		[prefsDict setObject:[NSNumber numberWithBool:[[springPrefs objectForKey:@"silent-vibrate"] boolValue]] forKey:@"silent-vibrate"];
-		[prefsDict setObject:[NSNumber numberWithBool:[[springPrefs objectForKey:@"ring-vibrate"] boolValue]] forKey:@"ring-vibrate"];
+		[prefsDict setObject:[NSNumber numberWithBool:silentV] forKey:@"silent-vibrate"];
+		[prefsDict setObject:[NSNumber numberWithBool:ringV] forKey:@"ring-vibrate"];
 		[prefsDict writeToFile:PreferencesFilePath atomically:YES];
 		CFPreferencesSetAppValue(CFSTR("silent-vibrate"), kCFBooleanFalse, CFSTR("com.apple.springboard"));
 		CFPreferencesSetAppValue(CFSTR("ring-vibrate"), kCFBooleanFalse, CFSTR("com.apple.springboard"));
