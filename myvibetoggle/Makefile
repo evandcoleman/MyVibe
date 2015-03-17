@@ -1,4 +1,4 @@
-include theos/makefiles/common.mk
+include $(THEOS)/makefiles/common.mk
 
 LIBRARY_NAME = Toggle
 Toggle_FILES = Toggle.mm

@@ -1,6 +1,6 @@
 export TARGET=iphone:clang:latest:6.0
 
-include theos/makefiles/common.mk
+include $(THEOS)/makefiles/common.mk
 
 BUNDLE_NAME = MyVibeSettings
 MyVibeSettings_FILES = MyVibeSettings.mm

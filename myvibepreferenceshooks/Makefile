@@ -1,4 +1,4 @@
-include theos/makefiles/common.mk
+include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = MyVibePreferencesHooks
 MyVibePreferencesHooks_FILES = Tweak.xm

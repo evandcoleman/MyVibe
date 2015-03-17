@@ -159,7 +159,7 @@
 	[defaults addEntriesFromDictionary:[NSDictionary dictionaryWithContentsOfFile:PreferencesFilePath]];
 	[defaults setObject:value forKey:specifier.properties[@"key"]];
 	[defaults writeToFile:PreferencesFilePath atomically:YES];
-	NSDictionary *exampleTweakSettings = [NSDictionary dictionaryWithContentsOfFile:PreferencesFilePath];
+	// NSDictionary *exampleTweakSettings = [NSDictionary dictionaryWithContentsOfFile:PreferencesFilePath];
 	CFStringRef toPost = (CFStringRef)specifier.properties[@"PostNotification"];
 	if(toPost) CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), toPost, NULL, NULL, YES);
 }
