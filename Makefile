@@ -1,6 +1,6 @@
 export THEOS_DEVICE_IP=10.0.1.72
 export GO_EASY_ON_ME=1
-export TARGET=iphone:clang:8.1:6.0
+export TARGET=iphone:clang:8.2:6.0
 export ARCHS = arm64 armv7
 export THEOS=/opt/theos
 
