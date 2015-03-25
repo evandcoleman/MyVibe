@@ -1,10 +1,11 @@
 #import <UIKit/UIKit.h>
 #import <CoreMotion/CoreMotion.h>
 #import <AudioToolbox/AudioToolbox.h>
+#import <CoreFoundation/CoreFoundation.h>
 
 #define PreferencesFilePath [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Preferences/net.evancoleman.myvibe.plist"]
 #define LogFilePath [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Logs/myvibe.log"]
-#define SpringBoardPreferencesFilePath [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Preferences/com.apple.springboard.plist"]
+//#define SpringBoardPreferencesFilePath [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Preferences/com.apple.springboard.plist"]
 
 @interface UIApplication (libstatusbar)
 - (void)addStatusBarImageNamed: (NSString*) name removeOnExit: (BOOL) remove;
@@ -120,7 +121,7 @@ void MVLog(NSString *s, ...) {
 void toggleStatusBarItem(BOOL enabled) {
 	if(enabled) {
 		if([[prefsDict objectForKey:@"showicon"] boolValue] || [prefsDict objectForKey:@"showicon"] == nil)
-			[[UIApplication sharedApplication] addStatusBarImageNamed:@"MyVibeVibrate"]; 
+			[[UIApplication sharedApplication] addStatusBarImageNamed:@"MyVibeVibrate"];
 	} else {
 		if([[prefsDict objectForKey:@"showicon"] boolValue] || [prefsDict objectForKey:@"showicon"] == nil)
 			[[UIApplication sharedApplication] removeStatusBarImageNamed:@"MyVibeVibrate"];
@@ -128,24 +129,44 @@ void toggleStatusBarItem(BOOL enabled) {
 }
 
 void toggleVibrate(BOOL enabled) {
-	NSMutableDictionary *springPrefs = [[NSMutableDictionary alloc] initWithContentsOfFile:SpringBoardPreferencesFilePath];
 	if(!enabled) {
 		//silentVibrateWasOn = [[springPrefs objectForKey:@"silent-vibrate"] boolValue];
 		//ringVibrateWasOn = [[springPrefs objectForKey:@"ring-vibrate"] boolValue];
-		[prefsDict setObject:[NSNumber numberWithBool:[[springPrefs objectForKey:@"silent-vibrate"] boolValue]] forKey:@"silent-vibrate"];
-		[prefsDict setObject:[NSNumber numberWithBool:[[springPrefs objectForKey:@"ring-vibrate"] boolValue]] forKey:@"ring-vibrate"];
+
+		BOOL silentV, ringV;
+		CFPropertyListRef svBoolean = CFPreferencesCopyAppValue(CFSTR("silent-vibrate"), CFSTR("com.apple.springboard"));
+		if (svBoolean && CFGetTypeID(svBoolean) == CFBooleanGetTypeID())
+		    silentV = CFBooleanGetValue((CFBooleanRef)svBoolean)? YES : NO;
+		else
+		    silentV = YES;
+
+		if (svBoolean)
+		    CFRelease(svBoolean);
+
+		CFPropertyListRef rvBoolean = CFPreferencesCopyAppValue(CFSTR("ring-vibrate"), CFSTR("com.apple.springboard"));
+		if (rvBoolean && CFGetTypeID(rvBoolean) == CFBooleanGetTypeID())
+		    ringV = CFBooleanGetValue((CFBooleanRef)rvBoolean)? YES : NO;
+		else
+		    ringV = YES;
+
+		if (rvBoolean)
+		    CFRelease(rvBoolean);
+
+		[prefsDict setObject:[NSNumber numberWithBool:silentV] forKey:@"silent-vibrate"];
+		[prefsDict setObject:[NSNumber numberWithBool:ringV] forKey:@"ring-vibrate"];
 		[prefsDict writeToFile:PreferencesFilePath atomically:YES];
-		[springPrefs setObject:[NSNumber numberWithBool:NO] forKey:@"silent-vibrate"];
-		[springPrefs setObject:[NSNumber numberWithBool:NO] forKey:@"ring-vibrate"];
+		CFPreferencesSetAppValue(CFSTR("silent-vibrate"), kCFBooleanFalse, CFSTR("com.apple.springboard"));
+		CFPreferencesSetAppValue(CFSTR("ring-vibrate"), kCFBooleanFalse, CFSTR("com.apple.springboard"));
 	} else {
 		if([prefsDict objectForKey:@"silent-vibrate"] != nil && [prefsDict objectForKey:@"ring-vibrate"] != nil) {
 			MVLog(@"RESTORING TO STATE %@ and %@",[prefsDict objectForKey:@"silent-vibrate"],[prefsDict objectForKey:@"ring-vibrate"]);
-			[springPrefs setObject:[prefsDict objectForKey:@"silent-vibrate"] forKey:@"silent-vibrate"];
-			[springPrefs setObject:[prefsDict objectForKey:@"ring-vibrate"] forKey:@"ring-vibrate"];
+			BOOL shouldSV = [[prefsDict objectForKey:@"silent-vibrate"] boolValue];
+			BOOL shouldRV = [[prefsDict objectForKey:@"ring-vibrate"] boolValue];
+			CFPreferencesSetAppValue(CFSTR("silent-vibrate"), shouldSV? kCFBooleanTrue : kCFBooleanFalse, CFSTR("com.apple.springboard"));
+			CFPreferencesSetAppValue(CFSTR("ring-vibrate"), shouldRV? kCFBooleanTrue : kCFBooleanFalse, CFSTR("com.apple.springboard"));
 		}
 	}
-	[springPrefs writeToFile:SpringBoardPreferencesFilePath atomically:YES];
-	[springPrefs release];
+	CFPreferencesAppSynchronize(CFSTR("com.apple.springboard"));
 	CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("com.apple.springboard.silent-vibrate.changed"), NULL, NULL, TRUE);
 	CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("com.apple.springboard.ring-vibrate.changed"), NULL, NULL, TRUE);
 }
@@ -157,14 +178,14 @@ void startMyVibe() {
     myVibeMotionManager.accelerometerUpdateInterval = refreshRate;
 	myvibeOpQ = [[NSOperationQueue currentQueue] retain];
     CMAccelerometerHandler accHandler = ^ (CMAccelerometerData *accData, NSError *error) {
-	
+
 		float refreshRate = [[prefsDict objectForKey:@"refresh"] floatValue];
 		if([prefsDict objectForKey:@"refresh"] == nil) refreshRate = defaultRefresh;
 		myVibeMotionManager.accelerometerUpdateInterval = refreshRate;
-	
+
 		BOOL tableVibrate = [[prefsDict objectForKey:@"tablevibrate"] boolValue];
 		BOOL upsideDownSilent = [[prefsDict objectForKey:@"upsidedownsilent"] boolValue];
-		
+
 		BOOL disableWhileMuted = [[prefsDict objectForKey:@"silentdisable"] boolValue];
 		if(disableWhileMuted) {
 			int muted = MSHookIvar<int>([UIApplication sharedApplication], "_ringerSwitchState");
@@ -172,7 +193,7 @@ void startMyVibe() {
 				tableVibrate = NO;
 			}
 		}
-		
+
 		float tableThreshold = [[prefsDict objectForKey:@"sensitivity"] floatValue];
 		if([prefsDict objectForKey:@"sensitivity"] == nil) tableThreshold = defaultThreshold;
 
@@ -305,6 +326,6 @@ static void updatePrefs() {
 	toggleVibrate(YES);
 	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, (CFNotificationCallback)updatePrefs, CFSTR("net.evancoleman.myvibe.prefs"), NULL, CFNotificationSuspensionBehaviorCoalesce);
 	//CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("net.evancoleman.myvibe.prefs"), NULL, NULL, TRUE);
-	
+
 	bbGateway = [[BBSettingsGateway alloc] init];
 }
